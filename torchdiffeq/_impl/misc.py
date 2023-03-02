@@ -182,7 +182,7 @@ class _PerturbFunc(torch.nn.Module):
         # This dtype change here might be buggy.
         # The exact time value should be determined inside the solver,
         # but this can slightly change it due to numerical differences during casting.
-        t = t.real.to(y.abs().dtype)
+        # t = t.real.to(y.abs().dtype)
         if perturb is Perturb.NEXT:
             # Replace with next smallest representable value.
             t = _nextafter(t, t + 1)
