@@ -19,7 +19,7 @@ pip install git+https://github.com/rtqichen/torchdiffeq
 ## Examples
 Examples are placed in the [`examples`](./examples) directory.
 
-We encourage those who are interested in using this library to take a look at [`examples/ode_demo.py`](./examples/ode_demo.py) for understanding how to use `torchdiffeq` to fit a simple spiral ODE.
+We encourage those who are interested in using this library to take a look at [`examples/ode_demo.py`](ode_demo.py) for understanding how to use `torchdiffeq` to fit a simple spiral ODE.
 
 <p align="center">
 <img align="middle" src="./assets/ode_demo.gif" alt="ODE Demo" width="500" height="250" />
