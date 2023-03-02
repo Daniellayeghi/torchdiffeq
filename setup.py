@@ -14,7 +14,7 @@ with open(os.path.join(here, 'torchdiffeq', '__init__.py')) as f:
 
 
 setuptools.setup(
-    name="torchdiffeq",
+    name="torchdiffeq_ctrl",
     version=version,
     author="Ricky Tian Qi Chen",
     author_email="rtqichen@cs.toronto.edu",

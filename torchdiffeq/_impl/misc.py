@@ -3,8 +3,6 @@ import math
 import numpy as np
 import torch
 import warnings
-from .event_handling import combine_event_functions
-
 
 _all_callback_names = ['callback_step', 'callback_accept_step', 'callback_reject_step']
 _all_adjoint_callback_names = [name + '_adjoint' for name in _all_callback_names]
@@ -195,14 +193,8 @@ class _PerturbFunc(torch.nn.Module):
         return self.base_func(t, y)
 
 
-def _check_inputs(func, y0, t, rtol, atol, method, options, event_fn, SOLVERS):
+def _check_inputs(func, y0, t, rtol, atol, method, options, SOLVERS):
 
-    if event_fn is not None:
-        if len(t) != 2:
-            raise ValueError(f"We require len(t) == 2 when in event handling mode, but got len(t)={len(t)}.")
-
-        # Combine event functions if the output is multivariate.
-        event_fn = combine_event_functions(event_fn, t[0], y0)
 
     # Keep reference to original func as passed in
     original_func = func
@@ -217,8 +209,7 @@ def _check_inputs(func, y0, t, rtol, atol, method, options, event_fn, SOLVERS):
         atol = _tuple_tol('atol', atol, shapes)
         y0 = torch.cat([y0_.reshape(-1) for y0_ in y0])
         func = _TupleFunc(func, shapes)
-        if event_fn is not None:
-            event_fn = _TupleInputOnlyFunc(event_fn, shapes)
+
 
     # Normalise method and options
     if options is None:
@@ -226,7 +217,7 @@ def _check_inputs(func, y0, t, rtol, atol, method, options, event_fn, SOLVERS):
     else:
         options = options.copy()
     if method is None:
-        method = 'dopri5'
+        method = 'euler'
     if method not in SOLVERS:
         raise ValueError('Invalid method "{}". Must be one of {}'.format(method,
                                                                          '{"' + '", "'.join(SOLVERS.keys()) + '"}.'))
@@ -275,9 +266,6 @@ def _check_inputs(func, y0, t, rtol, atol, method, options, event_fn, SOLVERS):
 
         # Ensure time values are un-negated when calling functions.
         func = _ReverseFunc(func, mul=-1.0)
-        if event_fn is not None:
-            event_fn = _ReverseFunc(event_fn)
-
         # For fixed step solvers.
         try:
             _grid_constructor = options['grid_constructor']
@@ -340,7 +328,7 @@ def _check_inputs(func, y0, t, rtol, atol, method, options, event_fn, SOLVERS):
     if len(invalid_callbacks) > 0:
         warnings.warn("Solver '{}' does not support callbacks {}".format(method, invalid_callbacks))
 
-    return shapes, func, y0, t, rtol, atol, method, options, event_fn, t_is_reversed
+    return shapes, func, y0, t, rtol, atol, method, options, t_is_reversed
 
 
 class _StitchGradient(torch.autograd.Function):

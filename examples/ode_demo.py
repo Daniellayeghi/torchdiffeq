@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 parser = argparse.ArgumentParser('ODE demo')
-parser.add_argument('--method', type=str, choices=['dopri5', 'adams'], default='dopri5')
+parser.add_argument('--method', type=str, choices=['dopri5', 'adams'], default='euler')
 parser.add_argument('--data_size', type=int, default=1000)
 parser.add_argument('--batch_time', type=int, default=10)
 parser.add_argument('--batch_size', type=int, default=20)
@@ -19,12 +19,10 @@ parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--adjoint', action='store_true')
 args = parser.parse_args()
 
-if args.adjoint:
-    from torchdiffeq import odeint_adjoint as odeint
-else:
-    from torchdiffeq import odeint
+from torchdiffeq import odeint_adjoint as odeint
 
-device = torch.device('cuda:' + str(args.gpu) if torch.cuda.is_available() else 'cpu')
+
+device = 'cpu'
 
 true_y0 = torch.tensor([[2., 0.]]).to(device)
 t = torch.linspace(0., 25., args.data_size).to(device)
@@ -38,7 +36,7 @@ class Lambda(nn.Module):
 
 
 with torch.no_grad():
-    true_y = odeint(Lambda(), true_y0, t, method='dopri5')
+    true_y, _ = odeint(Lambda(), true_y0, t, method='euler')
 
 
 def get_batch():
@@ -163,7 +161,9 @@ if __name__ == '__main__':
     for itr in range(1, args.niters + 1):
         optimizer.zero_grad()
         batch_y0, batch_t, batch_y = get_batch()
-        pred_y = odeint(func, batch_y0, batch_t, method='euler').to(device)
+
+        pred_y, _ = odeint(func, batch_y0, batch_t)
+        pred_y.to(device)
         loss = torch.mean(torch.abs(pred_y - batch_y))
         loss.backward()
         optimizer.step()
@@ -173,7 +173,7 @@ if __name__ == '__main__':
 
         if itr % args.test_freq == 0:
             with torch.no_grad():
-                pred_y = odeint(func, true_y0, t, method='euler')
+                pred_y, _ = odeint(func, true_y0, t)
                 loss = torch.mean(torch.abs(pred_y - true_y))
                 print('Iter {:04d} | Total Loss {:.6f}'.format(itr, loss.item()))
                 visualize(true_y, pred_y, func, ii)

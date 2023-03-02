@@ -1,32 +1,15 @@
 import torch
 from torch.autograd.functional import vjp
-from .dopri5 import Dopri5Solver
-from .bosh3 import Bosh3Solver
-from .adaptive_heun import AdaptiveHeunSolver
-from .fehlberg2 import Fehlberg2
-from .fixed_grid import Euler, Midpoint, RK4
-from .fixed_adams import AdamsBashforth, AdamsBashforthMoulton
-from .dopri8 import Dopri8Solver
+
+from .fixed_grid import Euler
 from .misc import _check_inputs, _flat_to_shape
 
 SOLVERS = {
-    'dopri8': Dopri8Solver,
-    'dopri5': Dopri5Solver,
-    'bosh3': Bosh3Solver,
-    'fehlberg2': Fehlberg2,
-    'adaptive_heun': AdaptiveHeunSolver,
-    'euler': Euler,
-    'midpoint': Midpoint,
-    'rk4': RK4,
-    'explicit_adams': AdamsBashforth,
-    'implicit_adams': AdamsBashforthMoulton,
-    # Backward compatibility: use the same name as before
-    'fixed_adams': AdamsBashforthMoulton,
-    # ~Backwards compatibility
+    'euler': Euler
 }
 
 
-def odeint(func, y0, t, *, rtol=1e-7, atol=1e-9, method=None, options=None, event_fn=None):
+def odeint(func, y0, t, *, rtol=1e-7, atol=1e-9, method=None, options=None):
     """Integrate a system of ordinary differential equations.
 
     Solves the initial value problem for a non-stiff system of first order ODEs:
@@ -67,62 +50,18 @@ def odeint(func, y0, t, *, rtol=1e-7, atol=1e-9, method=None, options=None, even
         ValueError: if an invalid `method` is provided.
     """
 
-    shapes, func, y0, t, rtol, atol, method, options, event_fn, t_is_reversed = _check_inputs(func, y0, t, rtol, atol, method, options, event_fn, SOLVERS)
+    shapes, func, y0, t, rtol, atol, method, options, t_is_reversed = _check_inputs(func, y0, t, rtol, atol, method, options, SOLVERS)
 
-    solver = SOLVERS[method](func=func, y0=y0, rtol=rtol, atol=atol, **options)
+    solver = SOLVERS['euler'](func=func, y0=y0, rtol=rtol, atol=atol, **options)
 
-    if event_fn is None:
-        solution = solver.integrate(t)
-    else:
-        event_t, solution = solver.integrate_until_event(t[0], event_fn)
-        event_t = event_t.to(t)
-        if t_is_reversed:
-            event_t = -event_t
+    solution, solution_dt = solver.integrate(t)
+
 
     if shapes is not None:
         solution = _flat_to_shape(solution, (len(t),), shapes)
 
-    if event_fn is None:
-        return solution
-    else:
-        return event_t, solution
+    return solution, solution_dt
 
-
-def odeint_event(func, y0, t0, *, event_fn, reverse_time=False, odeint_interface=odeint, **kwargs):
-    """Automatically links up the gradient from the event time."""
-
-    if reverse_time:
-        t = torch.cat([t0.reshape(-1), t0.reshape(-1).detach() - 1.0])
-    else:
-        t = torch.cat([t0.reshape(-1), t0.reshape(-1).detach() + 1.0])
-
-    event_t, solution = odeint_interface(func, y0, t, event_fn=event_fn, **kwargs)
-
-    # Dummy values for rtol, atol, method, and options.
-    shapes, _func, _, t, _, _, _, _, event_fn, _ = _check_inputs(func, y0, t, 0.0, 0.0, None, None, event_fn, SOLVERS)
-
-    if shapes is not None:
-        state_t = torch.cat([s[-1].reshape(-1) for s in solution])
-    else:
-        state_t = solution[-1]
-
-    # Event_fn takes in negated time value if reverse_time is True.
-    if reverse_time:
-        event_t = -event_t
-
-    event_t, state_t = ImplicitFnGradientRerouting.apply(_func, event_fn, event_t, state_t)
-
-    # Return the user expected time value.
-    if reverse_time:
-        event_t = -event_t
-
-    if shapes is not None:
-        state_t = _flat_to_shape(state_t, (), shapes)
-        solution = tuple(torch.cat([s[:-1], s_t[None]], dim=0) for s, s_t in zip(solution, state_t))
-    else:
-        solution = torch.cat([solution[:-1], state_t[None]], dim=0)
-
-    return event_t, solution
 
 
 class ImplicitFnGradientRerouting(torch.autograd.Function):
