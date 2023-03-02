@@ -36,7 +36,7 @@ class Lambda(nn.Module):
 
 
 with torch.no_grad():
-    true_y, _ = odeint(Lambda(), true_y0, t, method='euler')
+    true_y, ydt = odeint(Lambda(), true_y0, t, method='euler')
 
 
 def get_batch():
@@ -162,7 +162,7 @@ if __name__ == '__main__':
         optimizer.zero_grad()
         batch_y0, batch_t, batch_y = get_batch()
 
-        pred_y, _ = odeint(func, batch_y0, batch_t)
+        pred_y, ydt = odeint(func, batch_y0, batch_t)
         pred_y.to(device)
         loss = torch.mean(torch.abs(pred_y - batch_y))
         loss.backward()
@@ -173,7 +173,7 @@ if __name__ == '__main__':
 
         if itr % args.test_freq == 0:
             with torch.no_grad():
-                pred_y, _ = odeint(func, true_y0, t)
+                pred_y, ydt = odeint(func, true_y0, t)
                 loss = torch.mean(torch.abs(pred_y - true_y))
                 print('Iter {:04d} | Total Loss {:.6f}'.format(itr, loss.item()))
                 visualize(true_y, pred_y, func, ii)
