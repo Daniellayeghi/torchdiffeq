@@ -9,7 +9,7 @@ import torch.optim as optim
 
 parser = argparse.ArgumentParser('ODE demo')
 parser.add_argument('--method', type=str, choices=['dopri5', 'adams'], default='euler')
-parser.add_argument('--data_size', type=int, default=1000)
+parser.add_argument('--data_size', type=int, default=10000)
 parser.add_argument('--batch_time', type=int, default=10)
 parser.add_argument('--batch_size', type=int, default=20)
 parser.add_argument('--niters', type=int, default=2000)
