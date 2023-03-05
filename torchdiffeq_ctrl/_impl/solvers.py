@@ -53,7 +53,7 @@ class FixedGridODESolver(metaclass=abc.ABCMeta):
     def _step_func(self, func, t0, dt, t1, y0):
         pass
 
-    def integrate(self, t):
+    def integrate(self, t, backward=False):
         time_grid = self.grid_constructor(self.func, self.y0, t)
         assert time_grid[0] == t[0] and time_grid[-1] == t[-1]
 
@@ -61,8 +61,6 @@ class FixedGridODESolver(metaclass=abc.ABCMeta):
         solution_dt = torch.empty(len(t), *self.y0.shape, dtype=self.y0.dtype, device=self.y0.device)
 
         solution[0] = self.y0
-        solution_dt[0] = self.y0
-
 
         j = 1
         y0 = self.y0
@@ -75,7 +73,7 @@ class FixedGridODESolver(metaclass=abc.ABCMeta):
             while j < len(t) and t1 >= t[j]:
                 if self.interp == "linear":
                     solution[j] = self._linear_interp(t0, t1, y0, y1, t[j])
-                    solution_dt[j] = f0
+                    solution_dt[j-1] = f0
                 elif self.interp == "cubic":
                     f1 = self.func(t1, y1)
                     solution[j] = self._cubic_hermite_interp(t0, y0, f0, t1, y1, f1, t[j])
@@ -83,6 +81,16 @@ class FixedGridODESolver(metaclass=abc.ABCMeta):
                     raise ValueError(f"Unknown interpolation method {self.interp}")
                 j += 1
             y0 = y1
+
+        # solution_dt has the same velocity but 0 acceleration
+        if backward:
+            solution = solution.squeeze()
+            solution_dt = solution_dt.squeeze()
+            b_dim, v_dim = solution_dt[-1].shape
+            solution_dt[-1, :, :v_dim//2] = solution[-1, :, v_dim//2:].clone()
+            solution_dt[-1, :, v_dim //2:] *= 0
+            solution = solution.reshape((len(t), *self.y0.shape))
+            solution_dt = solution_dt.reshape((len(t), *self.y0.shape))
 
         return solution, solution_dt
 

@@ -19,8 +19,7 @@ parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--adjoint', action='store_true')
 args = parser.parse_args()
 
-from torchdiffeq import odeint_adjoint as odeint
-
+from torchdiffeq_ctrl import odeint_adjoint as odeint
 
 device = 'cpu'
 
@@ -112,15 +111,15 @@ class ODEFunc(nn.Module):
         super(ODEFunc, self).__init__()
 
         self.net = nn.Sequential(
-            nn.Linear(2, 50),
+            nn.Linear(2, 50, bias=False),
             nn.Tanh(),
-            nn.Linear(50, 2),
+            nn.Linear(50, 2, bias=False),
         )
 
         for m in self.net.modules():
             if isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, mean=0, std=0.1)
-                nn.init.constant_(m.bias, val=0)
+                # nn.init.constant_(m.bias, val=0)
 
     def forward(self, t, y):
         return self.net(y**3)
@@ -146,9 +145,7 @@ class RunningAverageMeter(object):
 
 
 if __name__ == '__main__':
-
     ii = 0
-
     func = ODEFunc().to(device)
     
     optimizer = optim.RMSprop(func.parameters(), lr=1e-3)

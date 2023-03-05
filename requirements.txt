@@ -1,0 +1,5 @@
+-i https://pypi.org/simple
+--extra-index-url https://download.pytorch.org/whl/cu113/
+numpy==1.21.6
+torch==1.12.1+cu113
+typing-extensions==4.5.0

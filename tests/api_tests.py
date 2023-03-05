@@ -1,6 +1,6 @@
 import unittest
 import torch
-import torchdiffeq
+import torchdiffeq_ctrl
 
 from problems import construct_problem, DTYPES, DEVICES, ADAPTIVE_METHODS
 
@@ -19,7 +19,7 @@ class TestCollectionState(unittest.TestCase):
                 for method in ADAPTIVE_METHODS:
 
                     with self.subTest(dtype=dtype, device=device, method=method):
-                        tuple_y = torchdiffeq.odeint(tuple_f, tuple_y0, t_points, method=method)
+                        tuple_y = torchdiffeq_ctrl.odeint(tuple_f, tuple_y0, t_points, method=method)
                         max_error0 = (sol - tuple_y[0]).abs().max()
                         max_error1 = (sol - tuple_y[1]).abs().max()
                         self.assertLess(max_error0, eps)
@@ -35,7 +35,7 @@ class TestCollectionState(unittest.TestCase):
 
                 with self.subTest(device=device, method=method):
                     for i in range(2):
-                        func = lambda y0, t_points: torchdiffeq.odeint(tuple_f, (y0, y0), t_points, method=method)[i]
+                        func = lambda y0, t_points: torchdiffeq_ctrl.odeint(tuple_f, (y0, y0), t_points, method=method)[i]
                         self.assertTrue(torch.autograd.gradcheck(func, (y0, t_points)))
 
 

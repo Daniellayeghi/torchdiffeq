@@ -2,7 +2,7 @@ import contextlib
 import unittest
 
 import torch
-import torchdiffeq
+import torchdiffeq_ctrl
 
 from problems import (DTYPES, DEVICES, ADAPTIVE_METHODS)
 
@@ -55,7 +55,7 @@ class TestNorms(unittest.TestCase):
             self.assertEqual(state.shape, ())
             return state.pow(2).mean().sqrt()
         x0 = torch.tensor(1.)
-        torchdiffeq.odeint(f, x0, t, options=dict(norm=norm))
+        torchdiffeq_ctrl.odeint(f, x0, t, options=dict(norm=norm))
         self.assertTrue(is_called)
 
         # Now test that tupled input appears in the norm
@@ -70,7 +70,7 @@ class TestNorms(unittest.TestCase):
             self.assertEqual(state.shape, ())
             return state.pow(2).mean().sqrt()
         x0 = (torch.tensor(1.),)
-        torchdiffeq.odeint(f, x0, t, options=dict(norm=norm))
+        torchdiffeq_ctrl.odeint(f, x0, t, options=dict(norm=norm))
         self.assertTrue(is_called)
 
         is_called = False
@@ -85,7 +85,7 @@ class TestNorms(unittest.TestCase):
             self.assertEqual(state2.shape, (2, 2))
             return state1.pow(2).mean().sqrt()
         x0 = (torch.tensor(1.), torch.tensor([[0.5, 0.5], [0.1, 0.1]]))
-        torchdiffeq.odeint(f, x0, t, options=dict(norm=norm))
+        torchdiffeq_ctrl.odeint(f, x0, t, options=dict(norm=norm))
         self.assertTrue(is_called)
 
     def test_adjoint_norm(self):
@@ -124,7 +124,7 @@ class TestNorms(unittest.TestCase):
                     else:
                         # Test not passing adjoint_options at all.
                         kwargs = {}
-                    xs = torchdiffeq.odeint_adjoint(f, x0, t, adjoint_params=adjoint_params, **kwargs)
+                    xs = torchdiffeq_ctrl.odeint_adjoint(f, x0, t, adjoint_params=adjoint_params, **kwargs)
                     _adjoint_norm = xs.grad_fn.adjoint_options['norm']
 
                     is_called = False
@@ -164,7 +164,7 @@ class TestNorms(unittest.TestCase):
                 else:
                     # Test not passing adjoint_options at all.
                     kwargs = {}
-                xs = torchdiffeq.odeint_adjoint(f, x0, t, adjoint_params=adjoint_params, **kwargs)
+                xs = torchdiffeq_ctrl.odeint_adjoint(f, x0, t, adjoint_params=adjoint_params, **kwargs)
                 adjoint_options_dict = xs[0].grad_fn.next_functions[0][0].next_functions[0][0].adjoint_options
                 _adjoint_norm = adjoint_options_dict['norm']
 
@@ -212,8 +212,8 @@ class TestNorms(unittest.TestCase):
                        adj_param2.abs())
 
         x0 = torch.tensor(1.)
-        xs = torchdiffeq.odeint_adjoint(f, x0, t, adjoint_params=adjoint_params,
-                                        adjoint_options=dict(norm=adjoint_norm))
+        xs = torchdiffeq_ctrl.odeint_adjoint(f, x0, t, adjoint_params=adjoint_params,
+                                             adjoint_options=dict(norm=adjoint_norm))
         xs.sum().backward()
         self.assertTrue(is_called)
 
@@ -236,8 +236,8 @@ class TestNorms(unittest.TestCase):
                        adj_param1.pow(2).mean().sqrt(), adj_param2.abs())
 
         x0 = torch.tensor(1.), torch.tensor([[0.5, 0.5], [0.1, 0.1]])
-        xs = torchdiffeq.odeint_adjoint(f, x0, t, adjoint_params=adjoint_params,
-                                        adjoint_options=dict(norm=adjoint_norm))
+        xs = torchdiffeq_ctrl.odeint_adjoint(f, x0, t, adjoint_params=adjoint_params,
+                                             adjoint_options=dict(norm=adjoint_norm))
         xs[0].sum().backward()
         self.assertTrue(is_called)
 
@@ -260,12 +260,12 @@ class TestNorms(unittest.TestCase):
                         t = torch.tensor([0., 1.0], device=device, dtype=torch.float64)
 
                         norm_f = _NeuralF(width=10, oscillate=True).to(device, dtype)
-                        torchdiffeq.odeint(norm_f, x0, t, method=method, options=dict(norm=norm))
+                        torchdiffeq_ctrl.odeint(norm_f, x0, t, method=method, options=dict(norm=norm))
                         large_norm_f = _NeuralF(width=10, oscillate=True).to(device, dtype)
                         with torch.no_grad():
                             for norm_param, large_norm_param in zip(norm_f.parameters(), large_norm_f.parameters()):
                                 large_norm_param.copy_(norm_param)
-                        torchdiffeq.odeint(large_norm_f, x0, t, method=method, options=dict(norm=large_norm))
+                        torchdiffeq_ctrl.odeint(large_norm_f, x0, t, method=method, options=dict(norm=large_norm))
 
                         self.assertLessEqual(norm_f.nfe, large_norm_f.nfe)
 
@@ -286,13 +286,13 @@ class TestNorms(unittest.TestCase):
 
                         ode_f = _NeuralF(width=1024, oscillate=True).to(device, dtype)
 
-                        out = torchdiffeq.odeint_adjoint(ode_f, x0, t, atol=tol, rtol=tol, method=method)
+                        out = torchdiffeq_ctrl.odeint_adjoint(ode_f, x0, t, atol=tol, rtol=tol, method=method)
                         ode_f.nfe = 0
                         out.sum().backward()
                         default_nfe = ode_f.nfe
 
-                        out = torchdiffeq.odeint_adjoint(ode_f, x0, t, atol=tol, rtol=tol, method=method,
-                                                         adjoint_options=dict(norm='seminorm'))
+                        out = torchdiffeq_ctrl.odeint_adjoint(ode_f, x0, t, atol=tol, rtol=tol, method=method,
+                                                              adjoint_options=dict(norm='seminorm'))
                         ode_f.nfe = 0
                         out.sum().backward()
                         seminorm_nfe = ode_f.nfe

@@ -3,7 +3,7 @@ import unittest
 import warnings
 
 import torch
-import torchdiffeq
+import torchdiffeq_ctrl
 
 from problems import (construct_problem, PROBLEMS, DTYPES, DEVICES, METHODS, ADAPTIVE_METHODS, FIXED_METHODS, SCIPY_METHODS)
 
@@ -43,7 +43,7 @@ class TestSolverError(unittest.TestCase):
                             with self.subTest(reverse=reverse, dtype=dtype, device=device, ode=ode, method=method):
                                 f, y0, t_points, sol = construct_problem(dtype=dtype, device=device, ode=ode,
                                                                          reverse=reverse)
-                                y = torchdiffeq.odeint(f, y0, t_points, method=method, **kwargs)
+                                y = torchdiffeq_ctrl.odeint(f, y0, t_points, method=method, **kwargs)
                                 self.assertLess(rel_error(sol, y), eps)
 
     def test_adjoint(self):
@@ -59,7 +59,7 @@ class TestSolverError(unittest.TestCase):
                         with self.subTest(reverse=reverse, dtype=dtype, device=device, ode=ode):
                             f, y0, t_points, sol = construct_problem(dtype=dtype, device=device, ode=ode,
                                                                      reverse=reverse)
-                            y = torchdiffeq.odeint_adjoint(f, y0, t_points)
+                            y = torchdiffeq_ctrl.odeint_adjoint(f, y0, t_points)
                             self.assertLess(rel_error(sol, y), eps)
 
 
@@ -79,7 +79,7 @@ class TestScipySolvers(unittest.TestCase):
                                 if torch.is_complex(y0) and solver in ["Radau", "LSODA"]:
                                     # scipy solvers don't support complex types.
                                     continue
-                                y = torchdiffeq.odeint(f, y0, t_points, method='scipy_solver', options={"solver": solver})
+                                y = torchdiffeq_ctrl.odeint(f, y0, t_points, method='scipy_solver', options={"solver": solver})
                                 self.assertTrue(sol.shape == y.shape)
                                 self.assertLess(rel_error(sol, y), eps)
 
@@ -96,7 +96,7 @@ class TestNoIntegration(unittest.TestCase):
                                 f, y0, t_points, sol = construct_problem(dtype=dtype, device=device, ode=ode,
                                                                          reverse=reverse)
 
-                                y = torchdiffeq.odeint(f, y0, t_points[0:1], method=method)
+                                y = torchdiffeq_ctrl.odeint(f, y0, t_points[0:1], method=method)
                                 self.assertLess((sol[0] - y).abs().max(), 1e-12)
 
 
@@ -129,7 +129,7 @@ class TestDiscontinuities(unittest.TestCase):
                             t = torch.tensor([0., 1.0], device=device)
 
                             simple_f = _JumpF()
-                            odeint = partial(torchdiffeq.odeint_adjoint, adjoint_params=()) if adjoint else torchdiffeq.odeint
+                            odeint = partial(torchdiffeq_ctrl.odeint_adjoint, adjoint_params=()) if adjoint else torchdiffeq_ctrl.odeint
                             simple_xs = odeint(simple_f, x0, t, atol=1e-6, method=method)
 
                             better_f = _JumpF()
@@ -169,7 +169,7 @@ class TestDiscontinuities(unittest.TestCase):
                                 options = dict(step_size=0.5, perturb=perturb)
 
                                 with warnings.catch_warnings():
-                                    odeint = partial(torchdiffeq.odeint_adjoint, adjoint_params=()) if adjoint else torchdiffeq.odeint
+                                    odeint = partial(torchdiffeq_ctrl.odeint_adjoint, adjoint_params=()) if adjoint else torchdiffeq_ctrl.odeint
                                     xs = odeint(f, x0, t, method=method, options=options)
 
                                 if perturb:
@@ -217,7 +217,7 @@ class TestGridConstructor(unittest.TestCase):
                         self.assertEqual(t[1], 0.)
                         return torch.linspace(1, 0, 11)
 
-                odeint = torchdiffeq.odeint_adjoint if adjoint else torchdiffeq.odeint
+                odeint = torchdiffeq_ctrl.odeint_adjoint if adjoint else torchdiffeq_ctrl.odeint
                 kwargs = {"adjoint_params": ()} if adjoint else {}
                 xs = odeint(f, x0, t, method='euler', options=dict(grid_constructor=grid_constructor), **kwargs)
                 x1 = xs[1]
@@ -244,7 +244,7 @@ class TestMinMaxStep(unittest.TestCase):
                             options['min_step'] = min_step
                             options['max_step'] = max_step
                             f, y0, t_points, sol = construct_problem(device=device, ode="linear")
-                            torchdiffeq.odeint(f, y0, t_points, method=method, options=options)
+                            torchdiffeq_ctrl.odeint(f, y0, t_points, method=method, options=options)
                             # Check min step produces far fewer evaluations
                             if min_step > 0:
                                 self.assertLess(f.nfe, 50)
@@ -281,7 +281,7 @@ class TestCallbacks(unittest.TestCase):
                     f = _NeuralF(width=10, oscillate=False)
                     setattr(f, callback_name, lambda t0, y0, dt: None)
                     with self.assertWarns(Warning):
-                        torchdiffeq.odeint(f, x0, t, method=method)
+                        torchdiffeq_ctrl.odeint(f, x0, t, method=method)
 
         for method in SCIPY_METHODS:
             for callback_name in ('callback_step', 'callback_accept_step', 'callback_reject_step'):
@@ -289,7 +289,7 @@ class TestCallbacks(unittest.TestCase):
                     f = _NeuralF(width=10, oscillate=False)
                     setattr(f, callback_name, lambda t0, y0, dt: None)
                     with self.assertWarns(Warning):
-                        torchdiffeq.odeint(f, x0, t, method=method)
+                        torchdiffeq_ctrl.odeint(f, x0, t, method=method)
 
     def test_steps(self):
         for forward, adjoint in ((False, True), (True, False), (True, True)):
@@ -353,7 +353,7 @@ class TestCallbacks(unittest.TestCase):
                         kwargs = dict(rtol=1e-3, atol=1e-4)
                     else:
                         kwargs = {}
-                    xs = torchdiffeq.odeint_adjoint(f, x0, t, method=method, **kwargs)
+                    xs = torchdiffeq_ctrl.odeint_adjoint(f, x0, t, method=method, **kwargs)
 
                     if forward:
                         if method in FIXED_METHODS:

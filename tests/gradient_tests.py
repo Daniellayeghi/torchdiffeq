@@ -1,6 +1,6 @@
 import unittest
 import torch
-import torchdiffeq
+import torchdiffeq_ctrl
 
 from problems import construct_problem, PROBLEMS, DEVICES, METHODS
 
@@ -19,7 +19,7 @@ class TestGradient(unittest.TestCase):
 
                 with self.subTest(device=device, method=method):
                     f, y0, t_points, _ = construct_problem(device=device)
-                    func = lambda y0, t_points: torchdiffeq.odeint(f, y0, t_points, method=method)
+                    func = lambda y0, t_points: torchdiffeq_ctrl.odeint(f, y0, t_points, method=method)
                     self.assertTrue(torch.autograd.gradcheck(func, (y0, t_points)))
 
     def test_adjoint(self):
@@ -28,7 +28,7 @@ class TestGradient(unittest.TestCase):
 
                 with self.subTest(device=device, method=method):
                     f, y0, t_points, _ = construct_problem(device=device)
-                    func = lambda y0, t_points: torchdiffeq.odeint_adjoint(f, y0, t_points, method=method)
+                    func = lambda y0, t_points: torchdiffeq_ctrl.odeint_adjoint(f, y0, t_points, method=method)
                     self.assertTrue(torch.autograd.gradcheck(func, (y0, t_points)))
 
     def test_adjoint_against_odeint(self):
@@ -51,7 +51,7 @@ class TestGradient(unittest.TestCase):
                         f, y0, t_points, _ = construct_problem(device=device, ode=ode)
                         t_points.requires_grad_(t_grad)
 
-                        ys = torchdiffeq.odeint(f, y0, t_points, rtol=1e-9, atol=1e-12)
+                        ys = torchdiffeq_ctrl.odeint(f, y0, t_points, rtol=1e-9, atol=1e-12)
                         torch.manual_seed(0)
                         gradys = torch.rand_like(ys)
                         ys.backward(gradys)
@@ -68,7 +68,7 @@ class TestGradient(unittest.TestCase):
                         for param in f.parameters():
                             param.grad.zero_()
 
-                        ys = torchdiffeq.odeint_adjoint(f, y0, t_points, rtol=1e-9, atol=1e-12)
+                        ys = torchdiffeq_ctrl.odeint_adjoint(f, y0, t_points, rtol=1e-9, atol=1e-12)
                         ys.backward(gradys)
 
                         adj_y0_grad = y0.grad
@@ -113,7 +113,7 @@ class TestCompareAdjointGradient(unittest.TestCase):
                         func, y0, t_points = self.problem(device=device)
                         t_points.requires_grad_(t_grad)
 
-                        ys = torchdiffeq.odeint_adjoint(func, y0, t_points, method=method)
+                        ys = torchdiffeq_ctrl.odeint_adjoint(func, y0, t_points, method=method)
                         gradys = torch.rand_like(ys) * 0.1
                         ys.backward(gradys)
 
@@ -124,7 +124,7 @@ class TestCompareAdjointGradient(unittest.TestCase):
                         self.assertEqual(max_abs(func.unused_module.bias.grad), 0)
 
                         func, y0, t_points = self.problem(device=device)
-                        ys = torchdiffeq.odeint(func, y0, t_points, method='dopri5')
+                        ys = torchdiffeq_ctrl.odeint(func, y0, t_points, method='dopri5')
                         ys.backward(gradys)
 
                         self.assertLess(max_abs(y0.grad - adj_y0_grad), eps[0])

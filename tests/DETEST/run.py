@@ -2,7 +2,7 @@ import time
 import numpy as np
 from scipy.stats.mstats import gmean
 import torch
-from torchdiffeq import odeint
+from torchdiffeq_ctrl import odeint
 import detest
 
 torch.set_default_tensor_type(torch.DoubleTensor)
